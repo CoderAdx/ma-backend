@@ -1,0 +1,15 @@
+# Ambiente virtual
+venv/
+
+# Variáveis de ambiente — NUNCA subir para o git
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Editor
+.vscode/
+.idea/
