@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_admin_client
+from app.services.alerta_service import disparar_alerta_faltantes
 
 router = APIRouter(prefix="/viagens", tags=["Viagens"])
 
@@ -195,3 +196,24 @@ def confirmar_presenca(
                 detail="Ônibus lotado. Você foi adicionado à lista de espera."
             )
         raise HTTPException(status_code=400, detail=str(e))
+    
+@router.post("/{viagem_id}/verificar-embarque")
+def verificar_embarque(
+    viagem_id: str,
+    authorization: str = Header(...)
+):
+    """
+    Fiscal chama no horário de partida da volta.
+    Cruza confirmados vs embarcados e dispara alerta se houver faltantes.
+    O Flutter de todos os passageiros recebe via Supabase Realtime.
+    """
+    usuario = get_usuario_logado(authorization)
+
+    if usuario["perfil"] not in ["admin", "fiscal"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Apenas Fiscal ou Admin podem verificar embarque"
+        )
+
+    resultado = disparar_alerta_faltantes(viagem_id)
+    return resultado
