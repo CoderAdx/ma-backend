@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth
 from app.routers import viagens
+from app.routers import penalidades
 
 app = FastAPI(
     title="MA – Maruim Acadêmico",
@@ -20,6 +21,7 @@ app.add_middleware(
 # Registra os routers
 app.include_router(auth.router)
 app.include_router(viagens.router)
+app.include_router(penalidades.router)
 
 @app.get("/")
 def raiz():
