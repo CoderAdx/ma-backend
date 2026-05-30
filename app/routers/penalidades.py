@@ -3,9 +3,29 @@ from pydantic import BaseModel
 from typing import Optional
 from app.database import get_admin_client
 from app.routers.viagens import get_usuario_logado
+from app.services.cron_service import reativar_estudantes_suspensos
+
+
+
+
+
 
 router = APIRouter(prefix="/penalidades", tags=["Penalidades"])
 
+
+@router.post("/admin/rodar-reativacao")
+def rodar_reativacao_manual(authorization: str = Header(...)):
+    """
+    Endpoint temporário para testar o cron job manualmente.
+    Remover antes de ir para produção.
+    """
+    usuario = get_usuario_logado(authorization)
+
+    if usuario["perfil"] != "admin":
+        raise HTTPException(status_code=403, detail="Apenas Admin")
+
+    reativar_estudantes_suspensos()
+    return {"mensagem": "Reativação executada manualmente"}
 
 # --- Modelos ---
 
