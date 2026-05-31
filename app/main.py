@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.routers import auth, viagens, penalidades
+from app.routers import auth, viagens, penalidades, telemetria
 from app.scheduler import iniciar_agendador, parar_agendador
 
 
@@ -33,6 +33,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(viagens.router)
 app.include_router(penalidades.router)
+app.include_router(telemetria.router)
 
 @app.get("/")
 def raiz():
