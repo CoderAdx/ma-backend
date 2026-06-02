@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
 from app.database import get_admin_client
+from app.services.email_service import enviar_credenciais
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
@@ -64,11 +65,6 @@ def login(dados: LoginInput):
 
 @router.post("/criar-usuario")
 def criar_usuario(dados: CriarUsuarioInput):
-    """
-    Cria um novo usuário no Supabase Auth + public.usuarios.
-    O trigger do Script 06 cuida da sincronização automaticamente.
-    Só admin deve chamar esse endpoint (vamos proteger isso na próxima etapa).
-    """
     perfis_validos = ['admin', 'fiscal', 'motorista', 'monitor', 'estudante']
     if dados.perfil not in perfis_validos:
         raise HTTPException(
@@ -85,14 +81,27 @@ def criar_usuario(dados: CriarUsuarioInput):
                 "nome_completo": dados.nome_completo,
                 "perfil": dados.perfil
             },
-            "email_confirm": True  # confirma email automaticamente (sem precisar clicar no link)
+            "email_confirm": True
         })
+
+        # Envia email com as credenciais
+        try:
+            enviar_credenciais(
+                email=dados.email,
+                nome=dados.nome_completo,
+                senha=dados.senha,
+                perfil=dados.perfil
+            )
+        except Exception as email_error:
+            # Email falhou mas usuário foi criado — não bloqueia
+            print(f"Aviso: email não enviado — {email_error}")
 
         return {
             "mensagem": "Usuário criado com sucesso",
             "id": resposta.user.id,
             "email": resposta.user.email
         }
+
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -105,3 +114,37 @@ def logout():
     Esse endpoint existe por convenção REST.
     """
     return {"mensagem": "Logout realizado. Descarte o token no cliente."}
+
+class ResetSenhaInput(BaseModel):
+    email: EmailStr
+
+@router.post("/reset-senha")
+def reset_senha(dados: ResetSenhaInput):
+    """
+    Dispara o email de reset de senha via Supabase.
+    O Supabase envia o link automaticamente.
+    """
+    try:
+        supabase = get_admin_client()
+        supabase.auth.reset_password_email(dados.email)
+        return {"mensagem": "Email de redefinição enviado."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.delete("/deletar-usuario/{usuario_id}")
+def deletar_usuario(usuario_id: str, authorization: str = Header(...)):
+    """
+    Remove o usuário do Supabase Auth.
+    Só admin pode chamar.
+    """
+    usuario = get_usuario_logado(authorization)
+
+    if usuario["perfil"] != "admin":
+        raise HTTPException(status_code=403, detail="Apenas Admin pode deletar usuários")
+
+    try:
+        supabase = get_admin_client()
+        supabase.auth.admin.delete_user(usuario_id)
+        return {"mensagem": "Usuário removido do Auth"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
